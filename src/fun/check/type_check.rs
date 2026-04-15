@@ -593,6 +593,15 @@ fn infer_match_cases(
       let (s_rest, t_rest) = infer_match_cases(env.subst(&s), book, types, adt, rest, adt_s, var_gen)?;
       let (t_final, s_final) = unify_term(&t1.subst(&s), &t_rest, bod)?;
 
+      // If the final type is `Any` but t1 (from non-unreachable arm) has type variables,
+      // we need to use t1's type to preserve those constraints
+      if let Type::Any = &t_final {
+        let t1_vars = t1.free_type_vars();
+        if !t1_vars.is_empty() {
+          return Ok((s_final.compose(s_rest).compose(s.clone()), t1.subst(&s)));
+        }
+      }
+
       Ok((s_final.compose(s_rest).compose(s), t_final))
     } else {
       Ok((Subst::default(), var_gen.fresh()))
